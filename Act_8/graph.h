@@ -1,196 +1,235 @@
-#pragma once
-#include <iostream>
+#ifndef Graph_H_
+#define Graph_H_
+
 #include <string>
-#include <vector>
-#include <algorithm>
 #include <sstream>
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <stack>
+#include <list>
+#include <algorithm>
 
 using namespace std;
 
 class Graph {
 private:
-    vector<vector<int>> adj_matrix;
-    vector<vector<int>> adj_list;
-    int nu_vertices;
+    int nodes;
+    vector<vector<int>> adjList;
+    vector<int> adjMatrix;
 
 public:
-    Graph() {}
+    Graph();
+    Graph(int);
+    ~Graph() = default;
 
-    // Loading functions
-    void loadGraphMat(string input, int vertices, int edges);
-    void loadGraphList(string input, int vertices);
-
-    // Printing functions
-    string printAdjMat();
+    void loadGraphList(const string&, int);
+    void loadGraphMat(const string&, int, int);
+    void addEdgeAdjList(int, int);
+    void addEdgeAdjMatrix(int, int);
     string printAdjList();
-
-    // Search algorithms
-    string DFS(int init_vertex, int target_vertex);
-    string BFS(int init_vertex, int target_vertex);
-
-    // Helper functions
-    string print_vector(const vector<int>& vec);
+    string printAdjMat();
+    string DFS(int, int);
+    string depthHelper(int, int, stack<int>&, list<int>&, vector<vector<int>>&);
+    string BFS(int, int);
+    string breadthHelper(int, int, queue<int>&, list<int>&, vector<vector<int>>&);
+    string print_visited(list<int>);
+    string print_path(const vector<vector<int>>&, int, int);
+    bool contains(const list<int>&, int);
+    void sortAdjList();
 };
 
-string Graph::print_vector(const vector<int>& vec) {
-    string result = "";
-    for (int i : vec) {
-        result += to_string(i) + " ";
-    }
-    return result;
+Graph::Graph() {
+    nodes = 0;
 }
 
-void Graph::loadGraphMat(string input, int vertices, int edges) {
-    nu_vertices = vertices;
-    // Create adjacency matrix
-    adj_matrix = vector<vector<int>>(vertices, vector<int>(vertices, 0));
-
-    size_t pos = 0;
-    string token;
-    while ((pos = input.find(' ')) != string::npos) {
-        token = input.substr(0, pos);
-        int init_vertex, end_vertex;
-        sscanf(token.c_str(), "(%d,%d)", &init_vertex, &end_vertex);
-        adj_matrix[init_vertex][end_vertex] = 1;
-        adj_matrix[end_vertex][init_vertex] = 1;
-        input.erase(0, pos + 1);
-    }
+Graph::Graph(int n) {
+    nodes = n;
+    adjList.resize(nodes);
+    adjMatrix.assign(nodes * nodes, 0);
 }
 
-void Graph::loadGraphList(string input, int vertices) {
-    nu_vertices = vertices;
-    // Create adjacency list
-    adj_list = vector<vector<int>>(vertices);
+void Graph::loadGraphList(const string& line, int numberVert) {
+    nodes = numberVert;
+    adjList.resize(nodes);
 
-    size_t pos = 0;
-    string token;
-    while ((pos = input.find(' ')) != string::npos) {
-        token = input.substr(0, pos);
-        int init_vertex, end_vertex;
-        sscanf(token.c_str(), "(%d,%d)", &init_vertex, &end_vertex);
-        adj_list[init_vertex].push_back(end_vertex);
-        adj_list[end_vertex].push_back(init_vertex);
-        input.erase(0, pos + 1);
-    }
-}
+    int u, v;
+    char ch;
 
-string Graph::printAdjMat() {
-    string result = "";
-    for (const vector<int>& row : adj_matrix) {
-        for (int val : row) {
-            result += to_string(val) + " ";
+    stringstream ss(line);
+    while (ss >> ch) {
+        if (ss >> u >> ch >> v >> ch) {
+            addEdgeAdjList(u, v);
+        } else {
+            cerr << "Error: Malformed input format." << endl;
+            // Puedes lanzar una excepción o manejar el error de otra manera aquí.
         }
-        result += '\n';
     }
-    return result;
+
+    sortAdjList();
+}
+
+void Graph::loadGraphMat(const string& line, int a, int b) {
+    nodes = a;
+    adjMatrix.assign(a * b, 0);
+
+    int u, v;
+    char ch;
+
+    stringstream ss(line);
+    while (ss >> ch) {
+        if (ss >> u >> ch >> v >> ch) {
+            addEdgeAdjMatrix(u, v);
+        } else {
+            cerr << "Error: Malformed input format." << endl;
+            // Puedes lanzar una excepción o manejar el error de otra manera aquí.
+        }
+    }
+}
+
+void Graph::addEdgeAdjList(int u, int v) {
+    adjList[u].push_back(v);
+    adjList[v].push_back(u);
+}
+
+void Graph::addEdgeAdjMatrix(int u, int v) {
+    adjMatrix[u * nodes + v] = 1;
+    adjMatrix[v * nodes + u] = 1;
 }
 
 string Graph::printAdjList() {
-    string result = "";
-    for (int i = 0; i < adj_list.size(); i++) {
-        result += "vertex " + to_string(i) + " : ";
-        sort(adj_list[i].begin(), adj_list[i].end());
-        for (int j : adj_list[i]) {
-            result += to_string(j) + " ";
+    stringstream aux;
+    for (int i = 0; i < nodes; i++) {
+        aux << "vertex " << i << " :";
+        for (int j = 0; j < adjList[i].size(); j++) {
+            aux << " " << adjList[i][j];
         }
-        result += '\n';
+        aux << " ";
     }
-    return result;
+    return aux.str();
 }
 
-string Graph::DFS(int init_vertex, int target_vertex) {
-    // Init vars
-    vector<int> stack;
-    vector<int> visited;
-    int current = init_vertex;
-
-    while (!(visited.size() >= nu_vertices)) {
-        // Check if the current is already in visited
-        bool already_visited = find(visited.begin(), visited.end(), current) != visited.end();
-
-        // Add to visited
-        if (!already_visited) visited.push_back(current);
-
-        // Check if target found
-        if (current == target_vertex) break;
-
-        // Remove already visited values
-        adj_list[current].erase(remove_if(adj_list[current].begin(), adj_list[current].end(),
-                                          [&visited](int v) { return find(visited.begin(), visited.end(), v) != visited.end(); }),
-                                adj_list[current].end());
-
-        if (!adj_list[current].empty()) {
-            stack.push_back(current);
-            // Check for last child of the current node
-            int temp_index = current;
-            current = adj_list[current].back();
-            adj_list[temp_index].pop_back();
-        } else {
-            // If you hit a wall
-            current = stack.back();
-            stack.pop_back();
+string Graph::printAdjMat() {
+    stringstream aux;
+    for (int i = 0; i < nodes; i++) {
+        for (int j = 0; j < nodes; j++) {
+            aux << adjMatrix[i * nodes + j] << " ";
         }
     }
-
-    // Add to the stack the found value to complete the path
-    stack.push_back(current);
-
-    // Convert list to string
-    string visited_str = print_vector(visited);
-    string path_str = print_vector(stack);
-    string result = "visited: " + visited_str + "path: " + path_str;
-    result = result.substr(0, result.size() - 1);
-    return result;
+    return aux.str();
 }
 
-string Graph::BFS(int init_vertex, int target_vertex) {
-    vector<vector<int>> queue;
-    vector<vector<int>> visited;
-    int current = init_vertex;
-    int parent = -1;
-
-    while (true) {
-        // Add to visited
-        vector<int> temp_visited({parent, current});
-        visited.push_back(temp_visited);
-        // Check if found
-        if (current == target_vertex) break;
-        // Push children to the queue if not visited
-        for (int val : adj_list[current]) {
-            bool already_visited = find_if(visited.begin(), visited.end(),
-                                           [val](const vector<int>& v) { return v[1] == val; }) != visited.end();
-            vector<int> temp_queue({current, val});
-            if (!already_visited) queue.push_back(temp_queue);
-        }
-        // Take from the queue
-        parent = queue[0][0];
-        current = queue[0][1];
-        queue.erase(queue.begin());
+string Graph::DFS(int start, int goal) {
+    if (start < 0 || start >= nodes || goal < 0 || goal >= nodes) {
+        return "Invalid start or goal node.";
     }
 
-    // Get the path
-    vector<int> path;
-    int find = target_vertex;
-    do {
-        for (const vector<int>& v : visited) {
-            if (v[1] == find) {
-                path.insert(path.begin(), find);
-                find = v[0];
+    stack<int> auxStack;
+    list<int> visited;
+    vector<vector<int>> paths(nodes, vector<int>(1, 0));
+    auxStack.push(start);
+
+    stringstream ss;
+    ss << depthHelper(start, goal, auxStack, visited, paths) << print_path(paths, start, goal);
+    return ss.str();
+}
+
+string Graph::depthHelper(int current, int goal, stack<int>& auxStack, list<int>& visited, vector<vector<int>>& paths) {
+    if (current == goal) {
+        return print_visited(visited);
+    } else if (auxStack.empty()) {
+        return " node not found";
+    } else {
+        current = auxStack.top();
+        auxStack.pop();
+        visited.push_back(current);
+        for (int i = 0; i < adjList[current].size(); i++) {
+            if (!contains(visited, adjList[current][i])) {
+                auxStack.push(adjList[current][i]);
+                paths[adjList[current][i]][0] = current;
             }
         }
-    } while (find != -1);
-
-    // Convert visited into a single array
-    vector<int> converted_visited;
-    for (const vector<int>& v : visited) {
-        converted_visited.push_back(v[1]);
+        return depthHelper(current, goal, auxStack, visited, paths);
     }
-
-    // Convert list to string
-    string visited_str = print_vector(converted_visited);
-    string path_str = print_vector(path);
-    string result = "visited: " + visited_str + "path: " + path_str;
-    result = result.substr(0, result.size() - 1);
-    return result;
 }
 
+string Graph::BFS(int start, int goal) {
+    if (start < 0 || start >= nodes || goal < 0 || goal >= nodes) {
+        return "Invalid start or goal node.";
+    }
+
+    queue<int> auxQueue;
+    list<int> visited;
+    vector<vector<int>> paths(nodes, vector<int>(1, 0));
+    auxQueue.push(start);
+    visited.push_back(start);
+
+    stringstream ss;
+    ss << breadthHelper(start, goal, auxQueue, visited, paths) << print_path(paths, start, goal);
+    return ss.str();
+}
+
+string Graph::breadthHelper(int current, int goal, queue<int>& auxQueue, list<int>& visited, vector<vector<int>>& paths) {
+    if (current == goal) {
+        return print_visited(visited);
+    } else if (!auxQueue.empty()) {
+        current = auxQueue.front();
+        auxQueue.pop();
+        for (int i = 0; i < adjList[current].size(); i++) {
+            if (!contains(visited, adjList[current][i])) {
+                auxQueue.push(adjList[current][i]);
+                visited.push_back(adjList[current][i]);
+                paths[adjList[current][i]][0] = current;
+                if (adjList[current][i] == goal) {
+                    return print_visited(visited);
+                }
+            }
+        }
+        return breadthHelper(current, goal, auxQueue, visited, paths);
+    }
+
+    return " node not found";
+}
+
+string Graph::print_visited(list<int> q) {
+    stringstream aux;
+    aux << "visited: ";
+    while (!q.empty()) {
+        aux << q.front() << " ";
+        q.pop_front();
+    }
+    return aux.str();
+}
+
+string Graph::print_path(const vector<vector<int>>& path, int start, int goal) {
+    int node = path[goal][0];
+    stack<int> reverse;
+    reverse.push(goal);
+    stringstream aux;
+    aux << "path:";
+
+    while (node != start) {
+        reverse.push(node);
+        node = path[node][0];
+    }
+
+    reverse.push(start);
+    while (!reverse.empty()) {
+        aux << " " << reverse.top();
+        reverse.pop();
+    }
+
+    return aux.str();
+}
+
+bool Graph::contains(const list<int>& ls, int node) {
+    return find(ls.begin(), ls.end(), node) != ls.end();
+}
+
+void Graph::sortAdjList() {
+    for (int i = 0; i < nodes; i++) {
+        sort(adjList[i].begin(), adjList[i].end());
+    }
+}
+
+#endif /* Graph_H_ */
